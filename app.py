@@ -369,14 +369,18 @@ def get_task_summary():
     today = date.today().isoformat()
     try:
         cur = conn.cursor()
-        cur.execute(f"SELECT * FROM tasks WHERE due_date < {p} AND status!='Done' ORDER BY due_date ASC", (today,))
-        overdue = fetchall(cur, db_type)
-        cur.execute(f"SELECT * FROM tasks WHERE due_date = {p} AND status!='Done' ORDER BY assignee ASC", (today,))
-        due_today = fetchall(cur, db_type)
-        if db_type == "sqlite":
-            cur.execute(f"SELECT * FROM tasks WHERE due_date > {p} AND due_date <= date({p},'+7 days') AND status!='Done' ORDER BY due_date ASC", (today, today))
+        if db_type == "pg":
+            cur.execute(f"SELECT * FROM tasks WHERE due_date < {p} AND status!='Done' ORDER BY due_date ASC", (today,))
+            overdue = fetchall(cur, db_type)
+            cur.execute(f"SELECT * FROM tasks WHERE due_date = {p} AND status!='Done' ORDER BY assignee ASC", (today,))
+            due_today = fetchall(cur, db_type)
+            cur.execute(f"SELECT * FROM tasks WHERE due_date > {p} AND due_date <= ({p}::date + INTERVAL '7 days')::text AND status!='Done' ORDER BY due_date ASC", (today, today))
         else:
-            cur.execute(f"SELECT * FROM tasks WHERE due_date > {p} AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status!='Done' ORDER BY due_date ASC", (today,))
+            cur.execute(f"SELECT * FROM tasks WHERE due_date < {p} AND status!='Done' ORDER BY due_date ASC", (today,))
+            overdue = fetchall(cur, db_type)
+            cur.execute(f"SELECT * FROM tasks WHERE due_date = {p} AND status!='Done' ORDER BY assignee ASC", (today,))
+            due_today = fetchall(cur, db_type)
+            cur.execute(f"SELECT * FROM tasks WHERE due_date > {p} AND due_date <= date({p},'+7 days') AND status!='Done' ORDER BY due_date ASC", (today, today))
         upcoming = fetchall(cur, db_type)
         for lst in [overdue, due_today, upcoming]:
             for t in lst:
