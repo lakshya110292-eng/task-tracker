@@ -447,7 +447,7 @@ function editTask(id) {
   document.getElementById('modal').classList.add('open');
 }
 
-function openModal() {
+async function openModal() {
   document.getElementById('edit-id').value = '';
   document.getElementById('modal-title').textContent = 'Add New Task';
   document.getElementById('f-title').value = '';
@@ -455,6 +455,8 @@ function openModal() {
   document.getElementById('f-due').value = today;
   document.getElementById('f-priority').value = 'High';
   document.getElementById('f-category').value = '';
+  // Always reload team members so new additions show up
+  await loadTeam();
   document.getElementById('modal').classList.add('open');
 }
 
