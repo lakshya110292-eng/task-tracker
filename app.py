@@ -1,6 +1,11 @@
 import os
 import sqlite3
+import smtplib
+import threading
+import time
 from datetime import date, datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
@@ -280,11 +285,112 @@ def get_stats():
     finally:
         conn.close()
 
+GMAIL_USER = os.environ.get("GMAIL_USER", "lakshya110292@gmail.com")
+GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
+NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "lakshya110292@gmail.com")
+
+def send_daily_email():
+    conn, db_type = get_db()
+    p = ph(db_type)
+    today = date.today().isoformat()
+    try:
+        cur = conn.cursor()
+
+        cur.execute(f"SELECT * FROM tasks WHERE due_date < {p} AND status != 'Done' ORDER BY due_date ASC", (today,))
+        overdue = fetchall(cur, db_type)
+
+        cur.execute(f"SELECT * FROM tasks WHERE due_date = {p} AND status != 'Done' ORDER BY assignee ASC", (today,))
+        due_today = fetchall(cur, db_type)
+
+        cur.execute(f"""SELECT * FROM tasks WHERE due_date > {p} AND due_date <= date({p}, '+7 days') AND status != 'Done' ORDER BY due_date ASC""" if db_type == "sqlite"
+                    else f"SELECT * FROM tasks WHERE due_date > {p} AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status != 'Done' ORDER BY due_date ASC",
+                    (today, today) if db_type == "sqlite" else (today,))
+        upcoming = fetchall(cur, db_type)
+
+    finally:
+        conn.close()
+
+    if not overdue and not due_today and not upcoming:
+        return
+
+    today_fmt = date.today().strftime("%A, %B %d %Y")
+
+    def task_rows(tasks):
+        if not tasks:
+            return "<p style='color:#888'>None</p>"
+        rows = ""
+        for t in tasks:
+            due = str(t["due_date"])[:10]
+            color = "#e74c3c" if str(t["due_date"])[:10] < today else "#333"
+            rows += f"""
+            <tr>
+              <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0'>{t['title']}</td>
+              <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6c63ff'>{t['assignee']}</td>
+              <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;color:{color};font-weight:600'>{due}</td>
+              <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0'>{t['priority']}</td>
+            </tr>"""
+        return f"<table style='width:100%;border-collapse:collapse'><tr style='background:#f8f9fa'><th style='padding:8px 12px;text-align:left'>Task</th><th style='padding:8px 12px;text-align:left'>Assignee</th><th style='padding:8px 12px;text-align:left'>Due</th><th style='padding:8px 12px;text-align:left'>Priority</th></tr>{rows}</table>"
+
+    html = f"""
+    <div style='font-family:sans-serif;max-width:700px;margin:auto'>
+      <div style='background:#1a1a2e;padding:24px 32px;border-radius:14px 14px 0 0'>
+        <h1 style='color:#fff;margin:0;font-size:22px'>TaskFlow <span style='color:#6c63ff'>Daily Briefing</span></h1>
+        <p style='color:#aaa;margin:6px 0 0'>{today_fmt}</p>
+      </div>
+      <div style='background:#fff;padding:32px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 14px 14px'>
+
+        <div style='background:#fde8e8;border-left:4px solid #e74c3c;padding:16px 20px;border-radius:8px;margin-bottom:24px'>
+          <h2 style='margin:0 0 12px;color:#e74c3c;font-size:16px'>Overdue ({len(overdue)})</h2>
+          {task_rows(overdue)}
+        </div>
+
+        <div style='background:#fff3cd;border-left:4px solid #f39c12;padding:16px 20px;border-radius:8px;margin-bottom:24px'>
+          <h2 style='margin:0 0 12px;color:#856404;font-size:16px'>Due Today ({len(due_today)})</h2>
+          {task_rows(due_today)}
+        </div>
+
+        <div style='background:#e8f4fd;border-left:4px solid #6c63ff;padding:16px 20px;border-radius:8px'>
+          <h2 style='margin:0 0 12px;color:#1976d2;font-size:16px'>Due This Week ({len(upcoming)})</h2>
+          {task_rows(upcoming)}
+        </div>
+
+        <p style='margin-top:24px;color:#aaa;font-size:12px;text-align:center'>Sent by TaskFlow &bull; Your daily task briefing</p>
+      </div>
+    </div>"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"TaskFlow Daily Briefing — {today_fmt}"
+    msg["From"] = GMAIL_USER
+    msg["To"] = NOTIFY_EMAIL
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(GMAIL_USER, GMAIL_PASS)
+            server.sendmail(GMAIL_USER, NOTIFY_EMAIL, msg.as_string())
+        print(f"Daily email sent to {NOTIFY_EMAIL}")
+    except Exception as e:
+        print(f"Email error: {e}")
+
+def email_scheduler():
+    while True:
+        now = datetime.now()
+        # Send at 8:00 AM
+        if now.hour == 8 and now.minute == 0:
+            send_daily_email()
+            time.sleep(61)  # avoid double-send within the same minute
+        time.sleep(30)
+
 with app.app_context():
     try:
         init_db()
     except Exception as e:
         print(f"DB init error: {e}")
+
+# Start background email scheduler
+if GMAIL_PASS:
+    t = threading.Thread(target=email_scheduler, daemon=True)
+    t.start()
 
 if __name__ == "__main__":
     print("\n Task Tracker running at: http://localhost:5000\n")
