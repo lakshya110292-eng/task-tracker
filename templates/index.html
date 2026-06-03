@@ -470,10 +470,13 @@ function closeModal() {
 }
 
 async function saveTask() {
-  const title = document.getElementById('f-title').value.trim();
-  const due = document.getElementById('f-due').value;
-  const assignee = document.getElementById('f-assignee').value;
-  if (!title || !due || !assignee) { alert('Title, assignee, and due date are required.'); return; }
+  const title    = document.getElementById('f-title').value.trim();
+  const due      = document.getElementById('f-due').value;
+  const assignee = document.getElementById('f-assignee').value.trim();
+
+  if (!title)    { alert('Please enter a task title.'); return; }
+  if (!assignee) { alert('Please enter an assignee name.'); return; }
+  if (!due)      { alert('Please select a due date.'); return; }
 
   const data = {
     title, due_date: due, assignee,
@@ -482,14 +485,27 @@ async function saveTask() {
     category: document.getElementById('f-category').value.trim()
   };
 
-  const editId = document.getElementById('edit-id').value;
-  if (editId) {
-    await fetch(`/api/tasks/${editId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
-  } else {
-    await fetch('/api/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  try {
+    const editId = document.getElementById('edit-id').value;
+    let res;
+    if (editId) {
+      res = await fetch(`/api/tasks/${editId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    } else {
+      res = await fetch('/api/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    }
+    if (!res.ok) { alert('Failed to save task. Please try again.'); return; }
+    closeModal();
+    // Switch to All Tasks view so the new task is always visible
+    currentView = 'all';
+    currentStatus = '';
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('nav-all').classList.add('active');
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('f-all').classList.add('active');
+    await refresh();
+  } catch(e) {
+    alert('Error saving task: ' + e.message);
   }
-  closeModal();
-  refresh();
 }
 
 function setView(view) {
