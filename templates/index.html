@@ -458,9 +458,9 @@ async function openModal() {
   document.getElementById('f-due').value = today;
   document.getElementById('f-priority').value = 'High';
   document.getElementById('f-category').value = '';
-  // Always reload team members so new additions show up
-  await loadTeam();
+  // Open modal immediately, then refresh team list in background
   document.getElementById('modal').classList.add('open');
+  try { await loadTeam(); } catch(e) {}
 }
 
 function closeModal() {
