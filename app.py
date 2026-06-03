@@ -10,6 +10,11 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print(f"Unhandled error: {e}")
+    return jsonify({"ok": False, "message": str(e)}), 500
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL and "sslmode" not in DATABASE_URL:
     DATABASE_URL += "?sslmode=require"
@@ -385,6 +390,7 @@ def get_task_summary():
 
 @app.route("/api/send-test-email", methods=["POST"])
 def send_test_email():
+    import traceback
     try:
         overdue, due_today, upcoming, today = get_task_summary()
         today_fmt = date.today().strftime("%A, %B %d %Y")
@@ -392,7 +398,9 @@ def send_test_email():
         ok, msg = send_email(f"[TEST] TaskFlow Daily Briefing — {today_fmt}", html, force=True)
         return jsonify({"ok": ok, "message": msg})
     except Exception as e:
-        return jsonify({"ok": False, "message": str(e)}), 500
+        tb = traceback.format_exc()
+        print(f"Test email error:\n{tb}")
+        return jsonify({"ok": False, "message": str(e), "traceback": tb}), 200
 
 def send_scheduled_email():
     overdue, due_today, upcoming, today = get_task_summary()
