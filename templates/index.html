@@ -157,7 +157,10 @@
       <div class="page-title" id="page-title">All Tasks</div>
       <div class="page-subtitle" id="page-date"></div>
     </div>
-    <button class="btn-primary" onclick="openModal()">&#43; Add Task</button>
+    <div style="display:flex;gap:10px">
+      <button class="btn-secondary" onclick="sendTestEmail()" id="test-email-btn" style="background:#f0f0f0;color:#444;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">&#9993; Send Test Email</button>
+      <button class="btn-primary" onclick="openModal()">&#43; Add Task</button>
+    </div>
   </div>
 
   <!-- Stats -->
@@ -518,6 +521,35 @@ async function promptAddMember() {
   if (!name || !name.trim()) return;
   await fetch('/api/team', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: name.trim()}) });
   refresh();
+}
+
+async function sendTestEmail() {
+  const btn = document.getElementById('test-email-btn');
+  btn.textContent = '⏳ Sending...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/send-test-email', { method: 'POST' });
+    const data = await r.json();
+    if (data.ok) {
+      btn.textContent = '✅ Email Sent!';
+      btn.style.background = '#e8f5e9';
+      btn.style.color = '#2e7d32';
+    } else {
+      btn.textContent = '❌ Failed';
+      btn.style.background = '#fde8e8';
+      btn.style.color = '#e74c3c';
+      alert('Email failed: ' + data.message);
+    }
+  } catch(e) {
+    btn.textContent = '❌ Error';
+    alert('Error: ' + e);
+  }
+  setTimeout(() => {
+    btn.textContent = '✉ Send Test Email';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.disabled = false;
+  }, 4000);
 }
 
 async function refresh() {
