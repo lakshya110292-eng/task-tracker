@@ -213,7 +213,8 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Assignee *</label>
-        <select class="form-select" id="f-assignee"></select>
+        <input class="form-input" id="f-assignee" placeholder="Type a name e.g. Rahul, Me..." list="assignee-list" autocomplete="off" />
+        <datalist id="assignee-list"></datalist>
       </div>
       <div class="form-group">
         <label class="form-label">Due Date *</label>
@@ -280,27 +281,28 @@ async function loadStats() {
 }
 
 async function loadTeam() {
-  const r = await fetch('/api/team');
-  const members = await r.json();
+  try {
+    const r = await fetch('/api/team');
+    const members = await r.json();
 
-  // Sidebar team links
-  const nav = document.getElementById('team-nav');
-  nav.innerHTML = members.map(m =>
-    `<div class="nav-item" onclick="filterByAssignee('${m}')" style="font-size:13px;">
-      <span class="icon">&#8226;</span> ${m}
-    </div>`
-  ).join('');
+    // Sidebar team links
+    const nav = document.getElementById('team-nav');
+    nav.innerHTML = members.map(m =>
+      `<div class="nav-item" onclick="filterByAssignee('${m}')" style="font-size:13px;">
+        <span class="icon">&#8226;</span> ${m}
+      </div>`
+    ).join('');
 
-  // Filter dropdown
-  const sel = document.getElementById('filter-assignee');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">All Assignees</option>' +
-    members.map(m => `<option ${m===cur?'selected':''}>${m}</option>`).join('');
+    // Filter dropdown
+    const sel = document.getElementById('filter-assignee');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Assignees</option>' +
+      members.map(m => `<option ${m===cur?'selected':''}>${m}</option>`).join('');
 
-  // Modal assignee dropdown
-  const fsel = document.getElementById('f-assignee');
-  const fcur = fsel.value;
-  fsel.innerHTML = members.map(m => `<option ${m===fcur?'selected':''}>${m}</option>`).join('');
+    // Assignee autocomplete datalist
+    const dl = document.getElementById('assignee-list');
+    dl.innerHTML = members.map(m => `<option value="${m}">`).join('');
+  } catch(e) { console.log('loadTeam error', e); }
 }
 
 async function loadTasks() {
@@ -450,17 +452,17 @@ function editTask(id) {
   document.getElementById('modal').classList.add('open');
 }
 
-async function openModal() {
+function openModal() {
   document.getElementById('edit-id').value = '';
   document.getElementById('modal-title').textContent = 'Add New Task';
   document.getElementById('f-title').value = '';
   document.getElementById('f-desc').value = '';
+  document.getElementById('f-assignee').value = '';
   document.getElementById('f-due').value = today;
   document.getElementById('f-priority').value = 'High';
   document.getElementById('f-category').value = '';
-  // Open modal immediately, then refresh team list in background
   document.getElementById('modal').classList.add('open');
-  try { await loadTeam(); } catch(e) {}
+  document.getElementById('f-title').focus();
 }
 
 function closeModal() {
