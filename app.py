@@ -5,7 +5,9 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-DATABASE_URL = os.environ.get("DATABASE_URL")  # set by Railway for Postgres
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL and "sslmode" not in DATABASE_URL:
+    DATABASE_URL += "?sslmode=require"
 
 # ── Database abstraction ──────────────────────────────────────────────────────
 
