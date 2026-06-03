@@ -493,7 +493,7 @@ async function saveTask() {
     } else {
       res = await fetch('/api/tasks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
     }
-    if (!res.ok) { alert('Failed to save task. Please try again.'); return; }
+    if (!res.ok) { const err = await res.json(); alert('Failed to save: ' + (err.error || 'Unknown error')); return; }
     closeModal();
     // Switch to All Tasks view so the new task is always visible
     currentView = 'all';

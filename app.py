@@ -156,26 +156,33 @@ def get_tasks():
 
 @app.route("/api/tasks", methods=["POST"])
 def add_task():
-    data = request.json
-    if not data.get("title") or not data.get("due_date") or not data.get("assignee"):
-        return jsonify({"ok": False, "error": "title, due_date and assignee are required"}), 400
-    conn, db_type = get_db()
-    p = ph(db_type)
     try:
-        cur = conn.cursor()
-        cur.execute(
-            f"INSERT INTO tasks (title,description,assignee,owner,due_date,priority,status,category) VALUES ({p},{p},{p},{p},{p},{p},{p},{p})",
-            (data["title"], data.get("description",""), data["assignee"], data.get("owner","Me"),
-             data["due_date"], data.get("priority","Medium"), "Pending", data.get("category","General"))
-        )
-        if db_type == "pg":
-            cur.execute(f"INSERT INTO team_members (name) VALUES ({p}) ON CONFLICT DO NOTHING", (data["assignee"],))
-        else:
-            cur.execute(f"INSERT OR IGNORE INTO team_members (name) VALUES ({p})", (data["assignee"],))
-        conn.commit()
-        return jsonify({"ok": True})
-    finally:
-        conn.close()
+        data = request.json
+        if not data.get("title") or not data.get("due_date") or not data.get("assignee"):
+            return jsonify({"ok": False, "error": "title, due_date and assignee are required"}), 400
+        conn, db_type = get_db()
+        p = ph(db_type)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"INSERT INTO tasks (title,description,assignee,owner,due_date,priority,status,category) VALUES ({p},{p},{p},{p},{p},{p},{p},{p})",
+                (data["title"], data.get("description",""), data["assignee"], data.get("owner","Me"),
+                 data["due_date"], data.get("priority","Medium"), "Pending", data.get("category","General"))
+            )
+            if db_type == "pg":
+                cur.execute(f"INSERT INTO team_members (name) VALUES ({p}) ON CONFLICT DO NOTHING", (data["assignee"],))
+            else:
+                cur.execute(f"INSERT OR IGNORE INTO team_members (name) VALUES ({p})", (data["assignee"],))
+            conn.commit()
+            return jsonify({"ok": True})
+        except Exception as e:
+            print(f"add_task DB error: {e}")
+            return jsonify({"ok": False, "error": str(e)}), 500
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"add_task error: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/tasks/<int:task_id>", methods=["PUT"])
 def update_task(task_id):
