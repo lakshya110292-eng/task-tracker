@@ -280,9 +280,12 @@ def get_stats():
     finally:
         conn.close()
 
+with app.app_context():
+    try:
+        init_db()
+    except Exception as e:
+        print(f"DB init error: {e}")
+
 if __name__ == "__main__":
-    init_db()
     print("\n Task Tracker running at: http://localhost:5000\n")
     app.run(debug=False, port=5000)
-
-init_db()
